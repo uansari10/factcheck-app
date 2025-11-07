@@ -1,13 +1,19 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import requests
 
-app = Flask(__name__)
-CORS(app)  # ✅ allow Chrome extension requests
+app = Flask(__name__, static_url_path='', static_folder='.')
+CORS(app)  # ✅ allow Chrome extension + browser requests
 
 API_KEY = "AIzaSyB8Sn0S6H5bFFNV4vuaygJcBFxbcU7AT3M"
 FACTCHECK_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
 
+# ✅ Serve the HTML interface
+@app.route("/")
+def home():
+    return send_from_directory(".", "index.html")
+
+# ✅ Fact-check API endpoint
 @app.route("/check", methods=["POST"])
 def check():
     data = request.get_json()
@@ -23,8 +29,12 @@ def check():
     if url:
         params["url"] = url
 
-    response = requests.get(FACTCHECK_URL, params=params)
-    return jsonify(response.json())
+    try:
+        response = requests.get(FACTCHECK_URL, params=params)
+        response.raise_for_status()
+        return jsonify(response.json())
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
